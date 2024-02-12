@@ -11,7 +11,7 @@ struct FlagImage: View {
     var imageName: String
     var body: some View {
         Image(imageName)
-            .clipShape(.ellipse)
+            .clipShape(.capsule)
             .shadow(radius: 10)
     }
 }
@@ -25,10 +25,13 @@ struct ContentView: View {
     @State private var score: Int = 0
     @State private var attempts: Int = 0
     @State private var selectedAnswer = ""
+    @State private var animationAmount3D: [Double] = [0.0, 0.0, 0.0]
+    @State private var buttonOpacities: [Double] = [1.0, 1.0, 1.0]
+    @State private var buttonScales: [CGFloat] = [1.0, 1.0, 1.0]
     
     var body: some View {
         ZStack {
-            LinearGradient(colors: [.gray, .black], startPoint: .trailing, endPoint: .bottom)
+            LinearGradient(colors: [.blue, .black], startPoint: .top, endPoint: .bottom)
             //RadialGradient(stops: [.init(color: Color(red: 0.1, green: 0.2, blue: 0.45), location: 0.3), .init(color: Color(red: 0.76, green: 0.15, blue: 0.26), location: 0.3)], center: .top, startRadius: 200, endRadius: 700)
             .ignoresSafeArea()
             VStack {
@@ -50,9 +53,26 @@ struct ContentView: View {
                             attempts += 1
                             flagTapped(number)
                             selectedAnswer = countries[number]
+                            if number == correctAnswer {
+                                withAnimation {
+                                    animationAmount3D[number] += 360.0
+                                    updateButtonStates(tappedButtonIndex: number)
+                                    if attempts < 8 {
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                            askQuestion()
+                                        }
+                                    }
+                                }
+                            }
                         } label: {
                             FlagImage(imageName: countries[number])
                         }
+                        .rotation3DEffect(
+                            Angle(degrees: animationAmount3D[number]),
+                            axis: (x: -1.0, y: 1.0, z: 20.0)
+                        )
+                        .opacity(buttonOpacities[number])
+                        .scaleEffect(buttonScales[number])
                         .alert(scoreTitle, isPresented: $showingScore) {
                             if attempts >= 8 {
                                 Button("Reset", action: askQuestion)
@@ -90,6 +110,7 @@ struct ContentView: View {
     }
     
     func flagTapped(_ number: Int) {
+        showingScore = false
         if attempts < 8 {
             if number == correctAnswer {
                 scoreTitle = "Correct!"
@@ -98,13 +119,14 @@ struct ContentView: View {
                 scoreTitle = "Wrong!"
             }
         } else {
+            showingScore = true
+            score += 1
             scoreTitle = "Game Over!"
         }
-
-        showingScore = true
     }
     
     func askQuestion() {
+        resetButtonStates()
         if attempts >= 8 {
             score = 0
             attempts = 0
@@ -113,6 +135,26 @@ struct ContentView: View {
         } else {
             countries.shuffle()
             correctAnswer = Int.random(in: 0...2)
+        }
+    }
+    
+    func opacity(for number: Int) -> Double {
+        return number != correctAnswer ? 0.25 : 1.0
+    }
+    
+    
+    func updateButtonStates(tappedButtonIndex: Int) {
+        for index in 0..<buttonOpacities.count {
+            buttonOpacities[index] = index == tappedButtonIndex ? 1.0 : 0.25
+            buttonScales[index] = index == tappedButtonIndex ? 1.0 : 0.58
+        }
+    }
+    
+    func resetButtonStates() {
+        withAnimation {
+            animationAmount3D = [0.0, 0.0, 0.0]
+            buttonOpacities = [1.0, 1.0, 1.0]
+            buttonScales = [1.0, 1.0, 1.0]
         }
     }
 }
